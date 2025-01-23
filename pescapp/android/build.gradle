@@ -16,3 +16,13 @@ subprojects {
 tasks.register("clean", Delete) {
     delete rootProject.buildDir
 }
+
+android {
+    defaultConfig {
+        applicationId "com.example.pescapp"
+        minSdkVersion 20                      
+        targetSdkVersion 33
+        versionCode 1
+        versionName "1.0"
+    }
+}
