@@ -2,7 +2,6 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:pescapp/widgets/base_layout.dart';
 import 'package:pescapp/services/firebase_service.dart';
-import 'package:pescapp/widgets/google_map_widget.dart';
 
 
 class DashboardPage extends StatelessWidget {
@@ -17,7 +16,6 @@ class DashboardPage extends StatelessWidget {
           children: [
             HeaderSection(),
             WeatherSection(),
-            Expanded(child: GoogleMapWidget()),
             MessageHistorySection(),
           ],
         ),
@@ -32,9 +30,9 @@ class HeaderSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.all(24.0),
+      padding: const EdgeInsets.only(left: 1.0, right: 1.0, top: 25.0 ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Text(
             'Buenos días, Miguel',
@@ -42,6 +40,7 @@ class HeaderSection extends StatelessWidget {
               fontSize: 32, // equivalent to text-4xl
               fontWeight: FontWeight.bold,
               color: const Color(0xFF0E0E0E),
+              fontFamily: 'Inter',
             ),
           ),
           const SizedBox(height: 8),
@@ -64,7 +63,7 @@ class WeatherSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: const Color(0xFFFBFBFB),
+      color: const Color.fromARGB(255, 255, 255, 255),
       padding: const EdgeInsets.all(24.0),
       child: Column(
         children: [
@@ -213,7 +212,8 @@ class MessageHistorySection extends StatelessWidget {
 
     return Expanded(
       child: Card(
-        margin: const EdgeInsets.all(16.0),
+        color: Colors.grey[100],
+        margin: const EdgeInsets.only(left: 1.0, right: 1.0, top: 1.0 ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [

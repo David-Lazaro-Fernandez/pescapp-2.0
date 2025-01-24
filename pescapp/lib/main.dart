@@ -22,6 +22,7 @@ class MyApp extends StatelessWidget {
       title: 'PescApp',
       theme: ThemeData(
         primarySwatch: Colors.blue,
+        scaffoldBackgroundColor: Colors.white,
       ),
       home: SignInPage(),  // Set SignInPage as initial screen
       routes: {

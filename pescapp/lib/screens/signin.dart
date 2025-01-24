@@ -19,10 +19,8 @@ class _SignInPageState extends State<SignInPage> {
   }
 
   void _handleSubmit() {
-    final email = _emailController.text;
-    final password = _passwordController.text;
-    // Handle login logic here
-    print('Email: $email, Password: $password');
+    // Directly navigate to the dashboard
+    Navigator.pushReplacementNamed(context, '/dashboard');
   }
 
   @override
