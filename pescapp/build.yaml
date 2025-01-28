@@ -1,0 +1,12 @@
+targets:
+  $default:
+    builders:
+      build_web_compilers|entrypoint:
+        generate_for:
+          - web/**.dart
+        options:
+          compiler: dart2js
+          dart2js_args:
+            - --minify
+        dependencies:
+          - scripts/build-env.js 
