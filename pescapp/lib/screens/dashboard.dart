@@ -2,22 +2,61 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:pescapp/widgets/base_layout.dart';
 import 'package:pescapp/services/firebase_service.dart';
-
+import 'package:pescapp/services/weather_service.dart';
+import 'package:pescapp/services/google_maps_service.dart';
 
 class DashboardPage extends StatelessWidget {
-  const DashboardPage({super.key});
+  final GoogleMapsService _googleMapsService = GoogleMapsService();
+  final WeatherService _weatherService = WeatherService();
+
+  Future<Map<String, dynamic>> _fetchData() async {
+    // Replace with actual coordinates
+    double latitude = 37.7749;
+    double longitude = -122.4194;
+
+    // Fetch location name
+    String locationName = await _googleMapsService.getLocationName(latitude, longitude);
+
+    // Fetch weather data
+    Map<String, dynamic> weatherData = await _weatherService.getWeatherData(latitude, longitude);
+
+    // Parse weather data
+    _weatherService.parseWeatherData(weatherData);
+
+    return {
+      'locationName': locationName,
+      'weatherData': weatherData,
+    };
+  }
 
   @override
   Widget build(BuildContext context) {
     return BaseLayout(
       currentIndex: 0,  // Because Dashboard is the home screen
       child: SafeArea(
-        child: Column(
-          children: [
-            HeaderSection(),
-            WeatherSection(),
-            MessageHistorySection(),
-          ],
+        child: FutureBuilder<Map<String, dynamic>>(
+          future: _fetchData(),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return Center(child: CircularProgressIndicator());
+            } else if (snapshot.hasError) {
+              return Center(child: Text('Error: ${snapshot.error}'));
+            } else if (!snapshot.hasData) {
+              return Center(child: Text('No data available'));
+            } else {
+              final data = snapshot.data!;
+              final locationName = data['locationName'];
+              final weatherData = data['weatherData'];
+
+              return Column(
+                children: [
+                  HeaderSection(),
+                  WeatherSection(),
+                  MessageHistorySection(),
+                ],
+              );
+            }
+          },
         ),
       ),
     );
@@ -60,79 +99,139 @@ class HeaderSection extends StatelessWidget {
 class WeatherSection extends StatelessWidget {
   const WeatherSection({super.key});
 
+  String _formatDate() {
+    final now = DateTime.now();
+    final days = ['Dom.', 'Lun.', 'Mar.', 'Mie.', 'Jue.', 'Vie.', 'Sab.'];
+    final months = ['Ene.', 'Feb.', 'Mar.', 'Abr.', 'May.', 'Jun.', 'Jul.', 'Ago.', 'Sep.', 'Oct.', 'Nov.', 'Dic.'];
+    return '${days[now.weekday % 7]} ${now.day} ${months[now.month - 1]} ${now.year}';
+  }
+
   @override
   Widget build(BuildContext context) {
+    final WeatherService weatherService = WeatherService();
+    final GoogleMapsService googleMapsService = GoogleMapsService();
+    final double latitude = 18.293232;
+    final double longitude = -93.863316;
+
     return Container(
       color: const Color.fromARGB(255, 255, 255, 255),
       padding: const EdgeInsets.all(24.0),
-      child: Column(
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            crossAxisAlignment: CrossAxisAlignment.start,
+      child: FutureBuilder<Map<String, dynamic>>(
+        future: Future.wait([
+          googleMapsService.getLocationName(latitude, longitude),
+          weatherService.getWeatherInLocation(latitude, longitude),
+        ]).then((results) => {
+          'locationName': results[0],
+          'weatherData': results[1],
+        }),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return Center(child: CircularProgressIndicator());
+          } else if (snapshot.hasError || snapshot.data == null) {
+            return Center(child: Text('Error fetching data'));
+          }
+
+          final locationName = snapshot.data!['locationName'] as String;
+          final weatherData = snapshot.data!['weatherData'] as Map<String, dynamic>?;
+
+          if (weatherData == null) {
+            return Center(child: Text('No weather data available'));
+          }
+
+          // Get hourly temperatures for the chart
+          final hourlyTemps = (weatherData['hourly_temps'] as List<Map<String, dynamic>>)
+              .asMap()
+              .entries
+              .map((entry) => FlSpot(
+                    entry.key.toDouble(),
+                    double.parse(entry.value['temp'].toString()),
+                  ))
+              .toList();
+
+          return Column(
             children: [
-              Column(
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'Chiltepec',
-                    style: TextStyle(
-                      fontSize: 24, // equivalent to text-2xl
-                      fontWeight: FontWeight.w600,
-                      color: const Color(0xFF0E0E0E),
-                    ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      SizedBox(
+                        width: MediaQuery.of(context).size.width * 0.6,
+                        child: Text(
+                          locationName,
+                          style: TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.w600,
+                            color: const Color(0xFF0E0E0E),
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 2,
+                        ),
+                      ),
+                      Text(
+                        _formatDate(),
+                        style: TextStyle(
+                          color: const Color(0xFFA8A8A8),
+                        ),
+                      ),
+                    ],
                   ),
-                  Text(
-                    'Mie. 22 Ago. 2023',
-                    style: TextStyle(
-                      color: const Color(0xFFA8A8A8),
-                    ),
+                  Icon(
+                    Icons.wb_sunny,
+                    size: 32,
+                    color: const Color(0xFF1B67E0),
                   ),
                 ],
               ),
-              Icon(
-                Icons.wb_sunny,
-                size: 32,
-                color: const Color(0xFF1B67E0),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    '34°C',
-                    style: TextStyle(
-                      fontSize: 48, // equivalent to text-6xl
-                      fontWeight: FontWeight.bold,
-                      color: const Color(0xFF1B67E0),
-                    ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '${weatherData['temperature']}°C',
+                        style: TextStyle(
+                          fontSize: 48,
+                          fontWeight: FontWeight.bold,
+                          color: const Color(0xFF1B67E0),
+                        ),
+                      ),
+                      Text(
+                        weatherData['description'],
+                        style: TextStyle(
+                          color: const Color(0xFFA8A8A8),
+                        ),
+                      ),
+                    ],
                   ),
-                  Text(
-                    'Día soleado',
-                    style: TextStyle(
-                      color: const Color(0xFFA8A8A8),
-                    ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      WeatherStatRow(
+                        label: 'Prob. de lluvia:',
+                        value: '${weatherData['probability_of_rain']}%',
+                      ),
+                      WeatherStatRow(
+                        label: 'Humedad:',
+                        value: '${weatherData['humidity']}%',
+                      ),
+                      WeatherStatRow(
+                        label: 'Viento:',
+                        value: '${weatherData['wind_speed']} km/h',
+                      ),
+                    ],
                   ),
                 ],
               ),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  WeatherStatRow(label: 'Prob. de lluvia:', value: '23%'),
-                  WeatherStatRow(label: 'Humedad:', value: '62%'),
-                  WeatherStatRow(label: 'Viento:', value: '16 km/h'),
-                ],
-              ),
+              const SizedBox(height: 24),
+              WeatherChart(spots: hourlyTemps),
             ],
-          ),
-          const SizedBox(height: 24),
-          WeatherChart(),
-        ],
+          );
+        },
       ),
     );
   }
@@ -170,7 +269,12 @@ class WeatherStatRow extends StatelessWidget {
 }
 
 class WeatherChart extends StatelessWidget {
-  const WeatherChart({super.key});
+  final List<FlSpot> spots;
+
+  const WeatherChart({
+    super.key,
+    required this.spots,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -183,14 +287,7 @@ class WeatherChart extends StatelessWidget {
           borderData: FlBorderData(show: false),
           lineBarsData: [
             LineChartBarData(
-              spots: [
-                FlSpot(0, 25),
-                FlSpot(2, 27),
-                FlSpot(4, 30),
-                FlSpot(6, 34),
-                FlSpot(8, 32),
-                FlSpot(10, 28),
-              ],
+              spots: spots,
               isCurved: true,
               color: const Color(0xFF1B67E0),
               barWidth: 3,

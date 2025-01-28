@@ -15,14 +15,17 @@ class BaseLayout extends StatelessWidget {
     return Scaffold(
       body: child,
       bottomNavigationBar: BottomNavigationBar(
+        backgroundColor: const Color.fromRGBO(27, 103, 224, 1),
         type: BottomNavigationBarType.fixed,
         currentIndex: currentIndex,
+        selectedItemColor: Colors.white,
+        unselectedItemColor: Colors.white.withOpacity(0.6),
         items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
-          BottomNavigationBarItem(icon: Icon(Icons.cloud), label: 'Weather'),
-          BottomNavigationBarItem(icon: Icon(Icons.explore), label: 'Compass'),
-          BottomNavigationBarItem(icon: Icon(Icons.water), label: 'Fish'),
-          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
+          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Inicio'),
+          BottomNavigationBarItem(icon: Icon(Icons.sunny), label: 'Clima'),
+          BottomNavigationBarItem(icon: Icon(Icons.explore), label: 'Mapa'),
+          BottomNavigationBarItem(icon: Icon(Icons.phishing), label: 'Peces'),
+          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Perfil'),
         ],
         onTap: (index) {
           switch (index) {
@@ -33,10 +36,10 @@ class BaseLayout extends StatelessWidget {
               Navigator.pushReplacementNamed(context, '/weather');
               break;
             case 2:
-              Navigator.pushReplacementNamed(context, '/compass');
+              Navigator.pushReplacementNamed(context, '/map');
               break;
             case 3:
-              Navigator.pushReplacementNamed(context, '/map');
+              Navigator.pushReplacementNamed(context, '/fish');
               break;
             case 4:
               Navigator.pushReplacementNamed(context, '/profile');

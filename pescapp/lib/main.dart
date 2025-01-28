@@ -5,6 +5,8 @@ import 'package:pescapp/screens/signup.dart';
 import 'package:pescapp/screens/dashboard.dart';
 import 'package:pescapp/screens/my_profile.dart';
 import 'package:pescapp/screens/map_page.dart';
+import 'package:pescapp/screens/weather.dart';
+import 'package:pescapp/screens/fishes.dart';
 import 'package:firebase_core/firebase_core.dart';
 
 Future<void> main() async {
@@ -31,6 +33,8 @@ class MyApp extends StatelessWidget {
         '/dashboard': (context) => DashboardPage(),
         '/profile': (context) => MyProfilePage(),
         '/map': (context) => MapPage(),
+        '/weather': (context) => WeatherScreen(),
+        '/fish': (context) => FishesScreen(),
       },
     );
   }
