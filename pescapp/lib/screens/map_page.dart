@@ -32,13 +32,51 @@ class _MapPageState extends State<MapPage> {
     );
   }
 
-  // Function to handle trip start
+  // Add this function to show the confirmation dialog
+  Future<bool?> _showEndTripConfirmationDialog() async {
+    return showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text('Finalizar viaje'),
+          content: Text('¿Estás seguro que quieres terminar el viaje?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: Text('No'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              style: TextButton.styleFrom(
+                foregroundColor: Colors.red,
+              ),
+              child: Text('Sí, Finalizar'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // Modify the _handleTripStart function
   void _handleTripStart() async {
-    await _showCountdownDialog();
-    setState(() {
-      isTripActive = true;
-    });
-    // Add your trip start logic here
+    if (isTripActive) {
+      // Show confirmation dialog when trying to end trip
+      final bool? shouldEnd = await _showEndTripConfirmationDialog();
+      if (shouldEnd ?? false) {
+        setState(() {
+          isTripActive = false;
+        });
+        // Add your trip end logic here
+      }
+    } else {
+      // Start new trip
+      await _showCountdownDialog();
+      setState(() {
+        isTripActive = true;
+      });
+      // Add your trip start logic here
+    }
   }
 
   void _onMapCreated(GoogleMapController controller) {
@@ -81,6 +119,22 @@ class _MapPageState extends State<MapPage> {
                 const SizedBox(height: 16),
                 _buildButtonRow(),
               ],
+            ),
+          ),
+          Positioned(
+            left: 16,
+            bottom: 32,
+            child: FloatingActionButton.extended(
+              onPressed: _handleTripStart,
+              backgroundColor: const Color(0xFF1B67E0),
+              label: Text(
+                isTripActive ? 'Finalizar viaje' : 'Iniciar viaje',
+                style: TextStyle(color: Colors.white),
+              ),
+              icon: Icon(
+                isTripActive ? Icons.stop : Icons.play_arrow,
+                color: Colors.white,
+              ),
             ),
           ),
         ],
