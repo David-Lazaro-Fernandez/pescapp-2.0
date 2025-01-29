@@ -1,6 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:pescapp/services/local_storage_service.dart';
+import 'package:geolocator/geolocator.dart';
+import 'dart:async';
 
 class BoatTrackingService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -8,6 +10,8 @@ class BoatTrackingService {
   final Connectivity _connectivity = Connectivity();
   int? _currentTravelId;
   bool _isTracking = false;
+  Timer? _recordingTimer;
+  static const int _recordingInterval = 5 * 60; // 5 minutes in seconds
 
   // Initialize a new travel
   Future<void> startTravel() async {
@@ -23,10 +27,26 @@ class BoatTrackingService {
       }
  
       _isTracking = true;
+      _startPeriodicRecording();
     } catch (e) {
       print('Error starting travel: $e');
       throw Exception('Failed to start travel');
     }
+  }
+
+  void _startPeriodicRecording() {
+    _recordingTimer?.cancel();
+    _recordingTimer = Timer.periodic(Duration(seconds: _recordingInterval), (timer) async {
+      // Get current position and record it
+      // You'll need to implement position getting logic here
+      // For example, using geolocator package:
+      try {
+        Position position = await Geolocator.getCurrentPosition();
+        await recordCoordinates(position.latitude, position.longitude);
+      } catch (e) {
+        print('Error recording periodic coordinates: $e');
+      }
+    });
   }
 
   // Record coordinates during travel
@@ -78,6 +98,7 @@ class BoatTrackingService {
 
   // End the current travel
   Future<void> endTravel() async {
+    _recordingTimer?.cancel();
     if (!_isTracking || _currentTravelId == null) {
       throw Exception('No active travel to end');
     }
