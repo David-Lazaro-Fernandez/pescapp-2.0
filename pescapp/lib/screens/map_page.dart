@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:pescapp/services/google_maps_service.dart';
 import 'package:pescapp/widgets/base_layout.dart';
+import 'dart:async';
 
 class MapPage extends StatefulWidget {
   const MapPage({super.key});
@@ -16,6 +17,29 @@ class _MapPageState extends State<MapPage> {
 
   final LatLng _initialPosition = const LatLng(18.293232, -93.863316);
   final Set<Marker> _markers = {};
+
+  // Add new variable to track trip status
+  bool isTripActive = false;
+
+  // Function to show countdown dialog
+  Future<void> _showCountdownDialog() async {
+    return showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return CountdownDialog();
+      },
+    );
+  }
+
+  // Function to handle trip start
+  void _handleTripStart() async {
+    await _showCountdownDialog();
+    setState(() {
+      isTripActive = true;
+    });
+    // Add your trip start logic here
+  }
 
   void _onMapCreated(GoogleMapController controller) {
     mapController = controller;
@@ -110,6 +134,62 @@ class _MapPageState extends State<MapPage> {
           borderRadius: BorderRadius.circular(8),
         ),
         elevation: 2,
+      ),
+    );
+  }
+}
+
+// Create a new widget for the countdown dialog
+class CountdownDialog extends StatefulWidget {
+  @override
+  _CountdownDialogState createState() => _CountdownDialogState();
+}
+
+class _CountdownDialogState extends State<CountdownDialog> {
+  int _countDown = 3;
+
+  @override
+  void initState() {
+    super.initState();
+    _startCountDown();
+  }
+
+  void _startCountDown() {
+    Timer.periodic(const Duration(seconds: 1), (timer) {
+      setState(() {
+        if (_countDown > 0) {
+          _countDown--;
+        } else {
+          timer.cancel();
+          Navigator.of(context).pop();
+        }
+      });
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Iniciando viaje'),
+      content: SizedBox(
+        height: 100,
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                _countDown > 0 ? '$_countDown' : '¡Comenzamos!',
+                style: const TextStyle(
+                  fontSize: 32,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 16),
+              if (_countDown > 0)
+                const CircularProgressIndicator(),
+            ],
+          ),
+        ),
       ),
     );
   }
