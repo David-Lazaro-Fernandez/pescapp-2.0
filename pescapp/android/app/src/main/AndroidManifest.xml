@@ -1,8 +1,14 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.example.pescapp">
     <application
         android:label="pescapp"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
+
+        <meta-data 
+            android:name="com.google.android.geo.API_KEY"
+            android:value="AIzaSyCJiBFO3Tsaejbu8kG1m3vvXFy47OMt9sg"/>
+
         <activity
             android:name=".MainActivity"
             android:exported="true"

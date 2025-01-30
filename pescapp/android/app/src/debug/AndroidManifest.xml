@@ -1,11 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.example.google_maps_in_flutter">
+    package="com.example.pescapp">
     <application
-        android:label="google_maps_in_flutter"
+        android:label="pescapp"
         android:icon="@mipmap/ic_launcher">
 
-        <meta-data android:name="com.google.android.geo.AIzaSyCJiBFO3Tsaejbu8kG1m3vvXFy47OMt9sg"
-               android:value="AIzaSyCJiBFO3Tsaejbu8kG1m3vvXFy47OMt9sg"/>
+        <meta-data 
+            android:name="com.google.android.geo.API_KEY"
+            android:value="AIzaSyCJiBFO3Tsaejbu8kG1m3vvXFy47OMt9sg"/>
 
         <activity
             android:name=".MainActivity"
@@ -31,4 +33,8 @@
             android:name="flutterEmbedding"
             android:value="2" />
     </application>
+    <!-- Flutter needs it to communicate with the running application
+         to allow setting breakpoints, to provide hot reload, etc.
+    -->
+    <uses-permission android:name="android.permission.INTERNET"/>
 </manifest>
