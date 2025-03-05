@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:pescapp/services/google_maps_service.dart';
 import 'package:pescapp/widgets/base_layout.dart';
+import 'package:geolocator/geolocator.dart';
 import 'dart:async';
+import 'package:pescapp/services/firebase_service.dart';
+import 'package:pescapp/services/location_service.dart';
 
 class MapPage extends StatefulWidget {
   const MapPage({super.key});
@@ -12,129 +14,195 @@ class MapPage extends StatefulWidget {
 }
 
 class _MapPageState extends State<MapPage> {
-  late GoogleMapController mapController;
-  final GoogleMapsService _googleMapsService = GoogleMapsService();
+  final FirebaseService _firebaseService = FirebaseService();
+  final LocationService _locationService = LocationService();
+  late GoogleMapController _mapController;
+  LatLng? _currentPosition;
+  bool _isLoading = true;
+  bool _isTripActive = false;
 
-  final LatLng _initialPosition = const LatLng(18.293232, -93.863316);
-  final Set<Marker> _markers = {};
-
-  // Add new variable to track trip status
-  bool isTripActive = false;
-
-  // Function to show countdown dialog
-  Future<void> _showCountdownDialog() async {
-    return showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (BuildContext context) {
-        return CountdownDialog();
-      },
-    );
+  @override
+  void initState() {
+    super.initState();
+    _initializeLocation();
   }
 
-  // Add this function to show the confirmation dialog
-  Future<bool?> _showEndTripConfirmationDialog() async {
-    return showDialog<bool>(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: Text('Finalizar viaje'),
-          content: Text('¿Estás seguro que quieres terminar el viaje?'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
-              child: Text('No'),
-            ),
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(true),
-              style: TextButton.styleFrom(
-                foregroundColor: Colors.red,
-              ),
-              child: Text('Sí, Finalizar'),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  // Modify the _handleTripStart function
-  void _handleTripStart() async {
-    if (isTripActive) {
-      // Show confirmation dialog when trying to end trip
-      final bool? shouldEnd = await _showEndTripConfirmationDialog();
-      if (shouldEnd ?? false) {
-        setState(() {
-          isTripActive = false;
-        });
-        // Add your trip end logic here
-      }
-    } else {
-      // Start new trip
-      await _showCountdownDialog();
+  Future<void> _initializeLocation() async {
+    try {
       setState(() {
-        isTripActive = true;
+        _isLoading = true;
       });
-      // Add your trip start logic here
+
+      final position = await _locationService.getCurrentLocation();
+      final currentLocation = _locationService.positionToLatLng(position);
+      
+      setState(() {
+        _currentPosition = currentLocation;
+        _isLoading = false;
+      });
+
+      if (_mapController != null) {
+        _mapController.animateCamera(
+          CameraUpdate.newLatLngZoom(currentLocation, 15),
+        );
+      }
+    } catch (e) {
+      print('Error getting location: $e');
+      setState(() {
+        _isLoading = false;
+      });
+      if (context.mounted) {
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: Text('Error de ubicación'),
+            content: Text('No se pudo obtener tu ubicación. Por favor, verifica que los permisos estén activados.'),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                  _initializeLocation();
+                },
+                child: Text('Reintentar'),
+              ),
+            ],
+          ),
+        );
+      }
     }
   }
 
   void _onMapCreated(GoogleMapController controller) {
-    mapController = controller;
-    _addMarkers();
+    _mapController = controller;
+    if (_currentPosition != null) {
+      controller.animateCamera(
+        CameraUpdate.newLatLngZoom(_currentPosition!, 15),
+      );
+    }
   }
 
-  void _addMarkers() {
-    final marker = _googleMapsService.createMarker(
-      markerId: 'defaultMarker',
-      position: _initialPosition,
-      infoWindowTitle: 'Default Location',
-    );
-    setState(() {
-      _markers.add(marker);
-    });
+  Future<void> _handleTripStart() async {
+    try {
+      setState(() {
+        _isTripActive = !_isTripActive;
+      });
+
+      if (_isTripActive) {
+        await _firebaseService.startTravel();
+        // Mostrar diálogo de cuenta regresiva
+        if (context.mounted) {
+          await showDialog(
+            context: context,
+            barrierDismissible: false,
+            builder: (context) => CountdownDialog(),
+          );
+        }
+      } else {
+        _firebaseService.stopTravel();
+      }
+    } catch (e) {
+      // Si hay un error, revertir el estado
+      setState(() {
+        _isTripActive = !_isTripActive;
+      });
+      // Mostrar error al usuario
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error al ${_isTripActive ? "iniciar" : "detener"} el viaje'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return BaseLayout(
-      currentIndex: 3, // Set the index for the map tab
+      currentIndex: 2,
       child: Stack(
         children: [
-          GoogleMap(
-            onMapCreated: _onMapCreated,
-            initialCameraPosition: CameraPosition(
-              target: _initialPosition,
-              zoom: 11.0,
+          if (_isLoading)
+            const Center(child: CircularProgressIndicator())
+          else if (_currentPosition == null)
+            Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text('No se pudo obtener la ubicación'),
+                  ElevatedButton(
+                    onPressed: _initializeLocation,
+                    child: Text('Reintentar'),
+                  ),
+                ],
+              ),
+            )
+          else
+            GoogleMap(
+              onMapCreated: _onMapCreated,
+              initialCameraPosition: CameraPosition(
+                target: _currentPosition!,
+                zoom: 15,
+              ),
+              myLocationEnabled: true,
+              myLocationButtonEnabled: true,
+              zoomControlsEnabled: true,
+              mapToolbarEnabled: true,
             ),
-            markers: _markers,
-          ),
+          // Barra de búsqueda
           Positioned(
             top: 40,
             left: 16,
             right: 16,
             child: Column(
               children: [
-                _buildSearchBar(),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(8),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.1),
+                        blurRadius: 10,
+                      ),
+                    ],
+                  ),
+                  child: TextField(
+                    decoration: const InputDecoration(
+                      hintText: '¿A dónde iremos hoy?',
+                      border: InputBorder.none,
+                      icon: Icon(Icons.search),
+                    ),
+                  ),
+                ),
                 const SizedBox(height: 16),
-                _buildButtonRow(),
+                // Botones de filtro
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      _buildFilterButton('Muelle', Icons.anchor),
+                      const SizedBox(width: 8),
+                      _buildFilterButton('Pescado', Icons.phishing),
+                      const SizedBox(width: 8),
+                      _buildFilterButton('Zona en V', Icons.close),
+                    ],
+                  ),
+                ),
               ],
             ),
           ),
+          // Botón de inicio/fin de viaje
           Positioned(
             left: 16,
-            bottom: 32,
+            bottom: 16,
             child: FloatingActionButton.extended(
               onPressed: _handleTripStart,
               backgroundColor: const Color(0xFF1B67E0),
-              label: Text(
-                isTripActive ? 'Finalizar viaje' : 'Iniciar viaje',
-                style: TextStyle(color: Colors.white),
-              ),
-              icon: Icon(
-                isTripActive ? Icons.stop : Icons.play_arrow,
-                color: Colors.white,
-              ),
+              label: Text(_isTripActive ? 'Finalizar Viaje' : 'Iniciar Viaje'),
+              icon: Icon(_isTripActive ? Icons.stop : Icons.play_arrow),
             ),
           ),
         ],
@@ -142,52 +210,19 @@ class _MapPageState extends State<MapPage> {
     );
   }
 
-  Widget _buildSearchBar() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(8),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 10,
-          ),
-        ],
-      ),
-      child: TextField(
-        decoration: const InputDecoration(
-          hintText: '¿A dónde iremos hoy?',
-          border: InputBorder.none,
-          icon: Icon(Icons.search),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildButtonRow() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-      children: [
-        _buildButton('Muelle', Icons.anchor),
-        _buildButton('Pescado', Icons.phishing),
-        _buildButton('Zona en V', Icons.close),
-      ],
-    );
-  }
-
-  Widget _buildButton(String label, IconData icon) {
+  Widget _buildFilterButton(String label, IconData icon) {
     return ElevatedButton.icon(
       onPressed: () {},
-      icon: Icon(icon),
+      icon: Icon(icon, size: 18),
       label: Text(label),
       style: ElevatedButton.styleFrom(
         backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
+        foregroundColor: Colors.black87,
+        elevation: 2,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(8),
         ),
-        elevation: 2,
       ),
     );
   }

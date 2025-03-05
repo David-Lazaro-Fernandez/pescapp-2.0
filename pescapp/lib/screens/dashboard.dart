@@ -4,35 +4,47 @@ import 'package:pescapp/widgets/base_layout.dart';
 import 'package:pescapp/services/firebase_service.dart';
 import 'package:pescapp/services/weather_service.dart';
 import 'package:pescapp/services/google_maps_service.dart';
+import 'package:pescapp/services/location_service.dart';
 
 class DashboardPage extends StatelessWidget {
   final GoogleMapsService _googleMapsService = GoogleMapsService();
   final WeatherService _weatherService = WeatherService();
+  final LocationService _locationService = LocationService();
 
   Future<Map<String, dynamic>> _fetchData() async {
-    // Replace with actual coordinates
-    double latitude = 37.7749;
-    double longitude = -122.4194;
+    try {
+      // Obtener ubicación actual
+      final position = await _locationService.getCurrentLocation();
+      final latitude = position.latitude;
+      final longitude = position.longitude;
 
-    // Fetch location name
-    String locationName = await _googleMapsService.getLocationName(latitude, longitude);
+      // Fetch location name
+      String locationName = await _googleMapsService.getLocationName(latitude, longitude);
 
-    // Fetch weather data
-    Map<String, dynamic> weatherData = await _weatherService.getWeatherData(latitude, longitude);
+      // Fetch weather data
+      final weatherData = await _weatherService.getWeatherInLocation(latitude, longitude);
+      
+      if (weatherData == null) {
+        throw Exception('No se pudieron obtener datos del clima');
+      }
 
-    // Parse weather data
-    _weatherService.parseWeatherData(weatherData);
-
-    return {
-      'locationName': locationName,
-      'weatherData': weatherData,
-    };
+      return {
+        'locationName': locationName,
+        'weatherData': weatherData,
+      };
+    } catch (e) {
+      print('Error fetching data: $e');
+      return {
+        'locationName': 'Ubicación no disponible',
+        'weatherData': null,
+      };
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return BaseLayout(
-      currentIndex: 0,  // Because Dashboard is the home screen
+      currentIndex: 0,
       child: SafeArea(
         child: FutureBuilder<Map<String, dynamic>>(
           future: _fetchData(),
@@ -41,21 +53,24 @@ class DashboardPage extends StatelessWidget {
               return Center(child: CircularProgressIndicator());
             } else if (snapshot.hasError) {
               return Center(child: Text('Error: ${snapshot.error}'));
-            } else if (!snapshot.hasData) {
-              return Center(child: Text('No data available'));
-            } else {
-              final data = snapshot.data!;
-              final locationName = data['locationName'];
-              final weatherData = data['weatherData'];
-
-              return Column(
-                children: [
-                  HeaderSection(),
-                  WeatherSection(),
-                  MessageHistorySection(),
-                ],
-              );
+            } else if (!snapshot.hasData || snapshot.data!['weatherData'] == null) {
+              return Center(child: Text('No hay datos disponibles'));
             }
+
+            final data = snapshot.data!;
+            final locationName = data['locationName'];
+            final weatherData = data['weatherData'];
+
+            return Column(
+              children: [
+                HeaderSection(),
+                WeatherSection(
+                  locationName: locationName,
+                  weatherData: weatherData,
+                ),
+                MessageHistorySection(),
+              ],
+            );
           },
         ),
       ),
@@ -97,7 +112,14 @@ class HeaderSection extends StatelessWidget {
 }
 
 class WeatherSection extends StatelessWidget {
-  const WeatherSection({super.key});
+  final String locationName;
+  final Map<String, dynamic> weatherData;
+
+  const WeatherSection({
+    super.key,
+    required this.locationName,
+    required this.weatherData,
+  });
 
   String _formatDate() {
     final now = DateTime.now();
@@ -106,132 +128,107 @@ class WeatherSection extends StatelessWidget {
     return '${days[now.weekday % 7]} ${now.day} ${months[now.month - 1]} ${now.year}';
   }
 
+  List<FlSpot> _convertToSpots(List<dynamic> hourlyTemps) {
+    return List<FlSpot>.generate(
+      hourlyTemps.length,
+      (index) => FlSpot(
+        index.toDouble(),
+        double.parse(hourlyTemps[index]['temp'].toString()),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final WeatherService weatherService = WeatherService();
-    final GoogleMapsService googleMapsService = GoogleMapsService();
-    final double latitude = 18.293232;
-    final double longitude = -93.863316;
+    // Convertir los datos de temperatura a FlSpot
+    final List<dynamic> hourlyTemps = weatherData['hourly_temps'] ?? [];
+    final spots = _convertToSpots(hourlyTemps);
 
     return Container(
       color: const Color.fromARGB(255, 255, 255, 255),
       padding: const EdgeInsets.all(24.0),
-      child: FutureBuilder<Map<String, dynamic>>(
-        future: Future.wait([
-          googleMapsService.getLocationName(latitude, longitude),
-          weatherService.getWeatherInLocation(latitude, longitude),
-        ]).then((results) => {
-          'locationName': results[0],
-          'weatherData': results[1],
-        }),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return Center(child: CircularProgressIndicator());
-          } else if (snapshot.hasError || snapshot.data == null) {
-            return Center(child: Text('Error fetching data'));
-          }
-
-          final locationName = snapshot.data!['locationName'] as String;
-          final weatherData = snapshot.data!['weatherData'] as Map<String, dynamic>?;
-
-          if (weatherData == null) {
-            return Center(child: Text('No weather data available'));
-          }
-
-          // Get hourly temperatures for the chart
-          final hourlyTemps = (weatherData['hourly_temps'] as List<Map<String, dynamic>>)
-              .asMap()
-              .entries
-              .map((entry) => FlSpot(
-                    entry.key.toDouble(),
-                    double.parse(entry.value['temp'].toString()),
-                  ))
-              .toList();
-
-          return Column(
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      SizedBox(
-                        width: MediaQuery.of(context).size.width * 0.6,
-                        child: Text(
-                          locationName,
-                          style: TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.w600,
-                            color: const Color(0xFF0E0E0E),
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                          maxLines: 2,
-                        ),
+                  SizedBox(
+                    width: MediaQuery.of(context).size.width * 0.6,
+                    child: Text(
+                      locationName,
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xFF0E0E0E),
                       ),
-                      Text(
-                        _formatDate(),
-                        style: TextStyle(
-                          color: const Color(0xFFA8A8A8),
-                        ),
-                      ),
-                    ],
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 2,
+                    ),
                   ),
-                  Icon(
-                    Icons.wb_sunny,
-                    size: 32,
-                    color: const Color(0xFF1B67E0),
+                  Text(
+                    _formatDate(),
+                    style: TextStyle(
+                      color: const Color(0xFFA8A8A8),
+                    ),
                   ),
                 ],
               ),
-              const SizedBox(height: 16),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        '${weatherData['temperature']}°C',
-                        style: TextStyle(
-                          fontSize: 48,
-                          fontWeight: FontWeight.bold,
-                          color: const Color(0xFF1B67E0),
-                        ),
-                      ),
-                      Text(
-                        weatherData['description'],
-                        style: TextStyle(
-                          color: const Color(0xFFA8A8A8),
-                        ),
-                      ),
-                    ],
-                  ),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      WeatherStatRow(
-                        label: 'Prob. de lluvia:',
-                        value: '${weatherData['probability_of_rain']}%',
-                      ),
-                      WeatherStatRow(
-                        label: 'Humedad:',
-                        value: '${weatherData['humidity']}%',
-                      ),
-                      WeatherStatRow(
-                        label: 'Viento:',
-                        value: '${weatherData['wind_speed']} km/h',
-                      ),
-                    ],
-                  ),
-                ],
+              Icon(
+                Icons.wb_sunny,
+                size: 32,
+                color: const Color(0xFF1B67E0),
               ),
-              const SizedBox(height: 24),
-              WeatherChart(spots: hourlyTemps),
             ],
-          );
-        },
+          ),
+          const SizedBox(height: 16),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '${weatherData['temperature']}°C',
+                    style: TextStyle(
+                      fontSize: 48,
+                      fontWeight: FontWeight.bold,
+                      color: const Color(0xFF1B67E0),
+                    ),
+                  ),
+                  Text(
+                    weatherData['description'],
+                    style: TextStyle(
+                      color: const Color(0xFFA8A8A8),
+                    ),
+                  ),
+                ],
+              ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  WeatherStatRow(
+                    label: 'Prob. de lluvia:',
+                    value: '${weatherData['probability_of_rain']}%',
+                  ),
+                  WeatherStatRow(
+                    label: 'Humedad:',
+                    value: '${weatherData['humidity']}%',
+                  ),
+                  WeatherStatRow(
+                    label: 'Viento:',
+                    value: '${weatherData['wind_speed']} km/h',
+                  ),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+          WeatherChart(spots: spots),
+        ],
       ),
     );
   }

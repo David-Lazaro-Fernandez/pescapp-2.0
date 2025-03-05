@@ -6,17 +6,19 @@ import 'dart:async';
 
 class BoatTrackingService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final LocalStorageService _localStorage = LocalStorageService();
+  final LocalStorageService _localStorageService = LocalStorageService();
   final Connectivity _connectivity = Connectivity();
-  int? _currentTravelId;
+  String? _currentTravelId;
   bool _isTracking = false;
   Timer? _recordingTimer;
   static const int _recordingInterval = 5 * 60; // 5 minutes in seconds
+  Timer? _timer;
+  bool _isRecording = false;
 
   // Initialize a new travel
   Future<void> startTravel() async {
     try {
-      _currentTravelId = DateTime.now().millisecondsSinceEpoch;
+      _currentTravelId = DateTime.now().millisecondsSinceEpoch.toString();
       
       final connectivityResult = await _connectivity.checkConnectivity();
       if (connectivityResult != ConnectivityResult.none) {
@@ -57,7 +59,12 @@ class BoatTrackingService {
 
     try {
       // Save coordinates locally first
-      await _localStorage.saveCoordinates(_currentTravelId!, latitude, longitude);
+      await _localStorageService.saveCoordinates(
+        latitude,
+        longitude,
+        DateTime.now(),
+        _currentTravelId!,
+      );
 
       // Check connectivity and sync if possible
       final connectivityResult = await _connectivity.checkConnectivity();
@@ -73,9 +80,8 @@ class BoatTrackingService {
   // Sync pending coordinates
   Future<void> _syncPendingCoordinates() async {
     try {
-      final pendingCoordinates = await _localStorage.getPendingCoordinates();
-      final syncedIds = <int>[];
-
+      final pendingCoordinates = await _localStorageService.getUnsyncedCoordinates();
+      
       for (final coord in pendingCoordinates) {
         await _firestore.collection('coords').add({
           'coords': {
@@ -83,13 +89,9 @@ class BoatTrackingService {
             'lon': coord['longitude'],
           },
           'timestamp': coord['timestamp'],
-          'travelid': coord['travel_id'],
+          'travelid': _currentTravelId,
         });
-        syncedIds.add(coord['id'] as int);
-      }
-
-      if (syncedIds.isNotEmpty) {
-        await _localStorage.markCoordinatesAsSynced(syncedIds);
+        await _localStorageService.markCoordinatesAsSynced(coord['id'] as int);
       }
     } catch (e) {
       print('Error syncing coordinates: $e');
@@ -132,10 +134,10 @@ class BoatTrackingService {
   bool get isTracking => _isTracking;
 
   // Get the current travel ID
-  int? get currentTravelId => _currentTravelId;
+  String? get currentTravelId => _currentTravelId;
 
   // Get coordinates for a specific travel
-  Future<List<Map<String, dynamic>>> getTravelCoordinates(int travelId) async {
+  Future<List<Map<String, dynamic>>> getTravelCoordinates(String travelId) async {
     try {
       final querySnapshot = await _firestore
           .collection('coords')
@@ -153,5 +155,31 @@ class BoatTrackingService {
       print('Error fetching travel coordinates: $e');
       return [];
     }
+  }
+
+  void startRecording() {
+    if (_isRecording) return;
+    _isRecording = true;
+    
+    // Record coordinates every 5 minutes
+    _timer = Timer.periodic(const Duration(minutes: 5), (timer) async {
+      try {
+        final position = await Geolocator.getCurrentPosition();
+        await _localStorageService.saveCoordinates(
+          position.latitude,
+          position.longitude,
+          DateTime.now(),
+          _currentTravelId!,
+        );
+      } catch (e) {
+        print('Error recording coordinates: $e');
+      }
+    });
+  }
+
+  void stopRecording() {
+    _timer?.cancel();
+    _timer = null;
+    _isRecording = false;
   }
 } 

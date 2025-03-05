@@ -2,22 +2,47 @@ import 'package:flutter/material.dart';
 import 'package:pescapp/widgets/base_layout.dart';
 import 'package:pescapp/services/weather_service.dart';
 import 'package:pescapp/services/google_maps_service.dart';
+import 'package:pescapp/services/location_service.dart';
 import 'package:fl_chart/fl_chart.dart';
 
 class WeatherScreen extends StatelessWidget {
   final WeatherService _weatherService = WeatherService();
   final GoogleMapsService _googleMapsService = GoogleMapsService();
+  final LocationService _locationService = LocationService();
+
+  Future<Map<String, dynamic>> _loadWeatherData() async {
+    try {
+      // Obtener ubicación actual
+      final position = await _locationService.getCurrentLocation();
+      final latitude = position.latitude;
+      final longitude = position.longitude;
+
+      final locationName = await _googleMapsService.getLocationName(latitude, longitude);
+      final weatherData = await _weatherService.getWeatherInLocation(latitude, longitude);
+
+      if (weatherData == null) {
+        throw Exception('No se pudieron obtener datos del clima');
+      }
+
+      return {
+        'locationName': locationName,
+        'weatherData': weatherData,
+      };
+    } catch (e) {
+      print('Error loading weather data: $e');
+      throw Exception('Error al cargar los datos del clima');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return BaseLayout(
-      currentIndex: 1, // Weather tab index
+      currentIndex: 1,
       child: SafeArea(
         child: SingleChildScrollView(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Header
               Padding(
                 padding: const EdgeInsets.all(16.0),
                 child: Text(
@@ -30,7 +55,6 @@ class WeatherScreen extends StatelessWidget {
                   ),
                 ),
               ),
-              // Weather Content
               FutureBuilder<Map<String, dynamic>>(
                 future: _loadWeatherData(),
                 builder: (context, snapshot) {
@@ -38,18 +62,25 @@ class WeatherScreen extends StatelessWidget {
                     return Center(child: CircularProgressIndicator());
                   }
 
-                  if (snapshot.hasError || snapshot.data == null) {
-                    return Center(child: Text('Error al cargar el clima'));
+                  if (snapshot.hasError) {
+                    return Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(16.0),
+                        child: Text(
+                          'Error: ${snapshot.error}',
+                          style: TextStyle(color: Colors.red),
+                        ),
+                      ),
+                    );
                   }
 
-                  final weatherData = snapshot.data!;
-                  final locationName = weatherData['locationName'] as String;
-                  final forecast = weatherData['weatherData'] as Map<String, dynamic>;
+                  final data = snapshot.data!;
+                  final locationName = data['locationName'] as String;
+                  final forecast = data['weatherData'] as Map<String, dynamic>;
                   final hourlyTemps = forecast['hourly_temps'] as List<Map<String, dynamic>>;
 
                   return Column(
                     children: [
-                      // Location and Current Weather
                       CurrentWeatherCard(
                         locationName: locationName,
                         temperature: forecast['temperature'],
@@ -58,7 +89,6 @@ class WeatherScreen extends StatelessWidget {
                         windSpeed: forecast['wind_speed'],
                         probabilityOfRain: forecast['probability_of_rain'],
                       ),
-                      // Hourly Timeline
                       Container(
                         height: 180,
                         padding: EdgeInsets.all(16),
@@ -74,7 +104,6 @@ class WeatherScreen extends StatelessWidget {
                           },
                         ),
                       ),
-                      // Temperature Chart
                       Padding(
                         padding: const EdgeInsets.all(16.0),
                         child: Container(
@@ -105,19 +134,6 @@ class WeatherScreen extends StatelessWidget {
         ),
       ),
     );
-  }
-
-  Future<Map<String, dynamic>> _loadWeatherData() async {
-    final double latitude = 18.293232;
-    final double longitude = -93.863316;
-
-    final locationName = await _googleMapsService.getLocationName(latitude, longitude);
-    final weatherData = await _weatherService.getWeatherInLocation(latitude, longitude);
-
-    return {
-      'locationName': locationName,
-      'weatherData': weatherData,
-    };
   }
 
   String _formatTime(String dateTimeStr) {

@@ -17,12 +17,20 @@ class LocalStorageService {
       version: 1,
       onCreate: (Database db, int version) async {
         await db.execute('''
-          CREATE TABLE pending_coordinates(
+          CREATE TABLE coordinates(
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            travel_id INTEGER,
             latitude REAL,
             longitude REAL,
-            timestamp INTEGER,
+            timestamp TEXT,
+            travel_id TEXT,
+            synced INTEGER DEFAULT 0
+          )
+        ''');
+
+        await db.execute('''
+          CREATE TABLE travels(
+            travel_id TEXT PRIMARY KEY,
+            timestamp TEXT,
             synced INTEGER DEFAULT 0
           )
         ''');
@@ -30,29 +38,73 @@ class LocalStorageService {
     );
   }
 
-  Future<void> saveCoordinates(int travelId, double latitude, double longitude) async {
+  Future<void> saveTravel(String travelId, DateTime timestamp) async {
     final db = await database;
-    await db.insert('pending_coordinates', {
-      'travel_id': travelId,
-      'latitude': latitude,
-      'longitude': longitude,
-      'timestamp': DateTime.now().millisecondsSinceEpoch,
-      'synced': 0,
-    });
+    await db.insert(
+      'travels',
+      {
+        'travel_id': travelId,
+        'timestamp': timestamp.toIso8601String(),
+        'synced': 0,
+      },
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
   }
 
-  Future<List<Map<String, dynamic>>> getPendingCoordinates() async {
+  Future<List<Map<String, dynamic>>> getPendingTravels() async {
     final db = await database;
-    return await db.query('pending_coordinates', where: 'synced = ?', whereArgs: [0]);
+    return await db.query(
+      'travels',
+      where: 'synced = ?',
+      whereArgs: [0],
+    );
   }
 
-  Future<void> markCoordinatesAsSynced(List<int> ids) async {
+  Future<void> markTravelAsSynced(String travelId) async {
     final db = await database;
     await db.update(
-      'pending_coordinates',
+      'travels',
       {'synced': 1},
-      where: 'id IN (${List.filled(ids.length, '?').join(',')})',
-      whereArgs: ids,
+      where: 'travel_id = ?',
+      whereArgs: [travelId],
+    );
+  }
+
+  Future<void> saveCoordinates(
+    double latitude,
+    double longitude,
+    DateTime timestamp,
+    String travelId,
+  ) async {
+    final db = await database;
+    await db.insert(
+      'coordinates',
+      {
+        'latitude': latitude,
+        'longitude': longitude,
+        'timestamp': timestamp.toIso8601String(),
+        'travel_id': travelId,
+        'synced': 0,
+      },
+    );
+  }
+
+  Future<List<Map<String, dynamic>>> getUnsyncedCoordinates() async {
+    final db = await database;
+    return await db.query(
+      'coordinates',
+      where: 'synced = ?',
+      whereArgs: [0],
+    );
+  }
+
+  Future<void> markCoordinatesAsSynced(int id) async {
+    final db = await database;
+    await db.update(
+      'coordinates',
+      {'synced': 1},
+      where: 'id = ?',
+      whereArgs: [id],
     );
   }
 } 
