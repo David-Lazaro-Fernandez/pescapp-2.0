@@ -3,11 +3,13 @@ import 'dart:async';
 import 'package:geolocator/geolocator.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:pescapp/services/local_storage_service.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class FirebaseService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final LocalStorageService _localStorage = LocalStorageService();
   final Connectivity _connectivity = Connectivity();
+  final FirebaseAuth _auth = FirebaseAuth.instance;
   Timer? _coordsTimer;
   Timer? _syncTimer;
   String? _currentTravelId;
@@ -31,6 +33,12 @@ class FirebaseService {
   // Iniciar un nuevo viaje
   Future<void> startTravel() async {
     try {
+      // Verificar que hay un usuario autenticado
+      final user = _auth.currentUser;
+      if (user == null) {
+        throw Exception('No hay usuario autenticado');
+      }
+
       // Generar un ID único para el viaje
       _currentTravelId = DateTime.now().millisecondsSinceEpoch.toString();
 
@@ -41,10 +49,12 @@ class FirebaseService {
         await _firestore.collection('travels').add({
           'timestamp': FieldValue.serverTimestamp(),
           'travel_id': _currentTravelId,
+          'user_id': user.uid,
+          'user_email': user.email,
         });
       } else {
         // Si no hay conexión, guardar localmente
-        await _localStorage.saveTravel(_currentTravelId!, DateTime.now());
+        await _localStorage.saveTravel(_currentTravelId!, DateTime.now(), user.uid);
       }
 
       // Iniciar el timer para registrar coordenadas
@@ -83,6 +93,7 @@ class FirebaseService {
         await _firestore.collection('travels').add({
           'timestamp': travel['timestamp'],
           'travel_id': travel['travel_id'],
+          'user_id': travel['user_id'],
         });
         await _localStorage.markTravelAsSynced(travel['travel_id'] as String);
       }

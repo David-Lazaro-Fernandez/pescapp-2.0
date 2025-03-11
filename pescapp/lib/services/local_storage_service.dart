@@ -14,7 +14,7 @@ class LocalStorageService {
     String path = join(await getDatabasesPath(), 'coordinates.db');
     return await openDatabase(
       path,
-      version: 1,
+      version: 2,
       onCreate: (Database db, int version) async {
         await db.execute('''
           CREATE TABLE coordinates(
@@ -31,20 +31,27 @@ class LocalStorageService {
           CREATE TABLE travels(
             travel_id TEXT PRIMARY KEY,
             timestamp TEXT,
+            user_id TEXT,
             synced INTEGER DEFAULT 0
           )
         ''');
       },
+      onUpgrade: (Database db, int oldVersion, int newVersion) async {
+        if (oldVersion < 2) {
+          await db.execute('ALTER TABLE travels ADD COLUMN user_id TEXT');
+        }
+      },
     );
   }
 
-  Future<void> saveTravel(String travelId, DateTime timestamp) async {
+  Future<void> saveTravel(String travelId, DateTime timestamp, String userId) async {
     final db = await database;
     await db.insert(
       'travels',
       {
         'travel_id': travelId,
         'timestamp': timestamp.toIso8601String(),
+        'user_id': userId,
         'synced': 0,
       },
       conflictAlgorithm: ConflictAlgorithm.replace,
