@@ -41,7 +41,7 @@ class FishesScreen extends StatelessWidget {
                   final fishes = snapshot.data ?? [];
                   
                   if (fishes.isEmpty) {
-                    return Center(child: Text('No hay peces registrados'));
+                    return Center(child: Text('En desarrollo...'));
                   }
 
                   return GridView.builder(

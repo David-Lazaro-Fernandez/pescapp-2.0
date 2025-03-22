@@ -5,6 +5,7 @@ import 'package:geolocator/geolocator.dart';
 import 'dart:async';
 import 'package:pescapp/services/firebase_service.dart';
 import 'package:pescapp/services/location_service.dart';
+import 'package:pescapp/screens/signin.dart';
 
 class MapPage extends StatefulWidget {
   const MapPage({super.key});
@@ -16,7 +17,7 @@ class MapPage extends StatefulWidget {
 class _MapPageState extends State<MapPage> {
   final FirebaseService _firebaseService = FirebaseService();
   final LocationService _locationService = LocationService();
-  late GoogleMapController _mapController;
+  GoogleMapController? _mapController;
   LatLng? _currentPosition;
   bool _isLoading = true;
   bool _isTripActive = false;
@@ -33,6 +34,18 @@ class _MapPageState extends State<MapPage> {
         _isLoading = true;
       });
 
+      // Solicitar permisos usando el diálogo por defecto de Android
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) {
+          setState(() {
+            _isLoading = false;
+          });
+          return;
+        }
+      }
+
       final position = await _locationService.getCurrentLocation();
       final currentLocation = _locationService.positionToLatLng(position);
       
@@ -42,7 +55,7 @@ class _MapPageState extends State<MapPage> {
       });
 
       if (_mapController != null) {
-        _mapController.animateCamera(
+        _mapController!.animateCamera(
           CameraUpdate.newLatLngZoom(currentLocation, 15),
         );
       }
@@ -55,15 +68,18 @@ class _MapPageState extends State<MapPage> {
         showDialog(
           context: context,
           builder: (context) => AlertDialog(
-            title: Text('Error de ubicación'),
-            content: Text('No se pudo obtener tu ubicación. Por favor, verifica que los permisos estén activados.'),
+            title: const Text('Error de ubicación'),
+            content: Text(e.toString()),
             actions: [
               TextButton(
                 onPressed: () {
                   Navigator.pop(context);
-                  _initializeLocation();
+                  Navigator.pushReplacement(
+                    context,
+                    MaterialPageRoute(builder: (context) => const SignInPage()),
+                  );
                 },
-                child: Text('Reintentar'),
+                child: const Text('Volver al inicio de sesión'),
               ),
             ],
           ),

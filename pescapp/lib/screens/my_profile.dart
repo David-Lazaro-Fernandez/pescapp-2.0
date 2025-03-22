@@ -19,43 +19,37 @@ class MyProfilePage extends StatelessWidget {
     );
   }
 
-  Widget _buildProfileHeader() {
-    return Container(
+Widget _buildProfileHeader() {
+  return Center(
+    child: Container(
       padding: const EdgeInsets.fromLTRB(0, 32, 0, 24),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Container(
-            width: 96,
-            height: 96,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              image: DecorationImage(
-                image: NetworkImage(
-                  'https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Pescapp-4BhWpYTIPjPIDG0b0JH6fvAoDklQ2R.png',
-                ),
-                fit: BoxFit.cover,
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
           Text(
-            'Miguel Lázaro',
+            'Powered By: ML Cats Consultancy',
+            textAlign: TextAlign.center, // Asegura que el texto también quede centrado
             style: TextStyle(
-              fontSize: 24,
+              fontSize: 20,
               fontWeight: FontWeight.w600,
               color: Color(0xFF0E0E0E),
             ),
           ),
+          const SizedBox(height: 16),
           Text(
-            'pescapp@gmail.com',
+            'Este proyecto fue desarrollado por ECOSUR y financiado por recursos de PRODECTI 2023 CCyTET',
+            textAlign: TextAlign.center,
             style: TextStyle(
-              color: Color(0xFF717171),
+              fontSize: 16,
+              fontWeight: FontWeight.w400,
+              color: Color(0xFF0E0E0E),
             ),
           ),
         ],
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildSettingsList() {
     return Container(

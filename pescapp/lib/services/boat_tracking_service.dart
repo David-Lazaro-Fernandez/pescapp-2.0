@@ -64,6 +64,7 @@ class BoatTrackingService {
         longitude,
         DateTime.now(),
         _currentTravelId!,
+        'tracking',
       );
 
       // Check connectivity and sync if possible
@@ -170,6 +171,7 @@ class BoatTrackingService {
           position.longitude,
           DateTime.now(),
           _currentTravelId!,
+          'tracking'
         );
       } catch (e) {
         print('Error recording coordinates: $e');

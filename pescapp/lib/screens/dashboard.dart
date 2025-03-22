@@ -89,7 +89,7 @@ class HeaderSection extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Text(
-            'Buenos días, Miguel',
+            'Bienvenido',
             style: TextStyle(
               fontSize: 32, // equivalent to text-4xl
               fontWeight: FontWeight.bold,
@@ -99,7 +99,7 @@ class HeaderSection extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            '¡Hoy habrá mucho viento!',
+            'Consulta como estara el clima en tu zona',
             style: TextStyle(
               fontSize: 20, // equivalent to text-xl
               color: const Color(0xFFA8A8A8),
